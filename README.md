@@ -96,34 +96,7 @@ docker run --env-file .env -p 8080:8080 pulsedesk
 ```
 
 Open `http://localhost:8080` in your browser.
- 
----
 
-## Running without Docker
-
-Requirements: Java 21+, Maven 3.8+
-
-```bash
-git clone https://github.com/Radyslav0/pulsedesk.git
-cd pulsedesk
-```
-
-Set the token as an environment variable:
-
-```bash
-# Windows
-set HF_API_TOKEN=your_token_here
- 
-# Mac/Linux
-export HF_API_TOKEN=your_token_here
-```
-
-Then run:
-
-```bash
-mvn spring-boot:run
-```
- 
 ---
 
 ## API Reference
