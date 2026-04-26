@@ -1,0 +1,270 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          background: #f0f0f0;
+          padding: 20px;
+        }
+
+        h1 {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        .main {
+          display: flex;
+          gap: 20px;
+        }
+
+        .left, .right {
+          background: white;
+          padding: 20px;
+          border: 1px solid #ccc;
+          flex: 1;
+        }
+
+        h2 {
+          margin-bottom: 10px;
+        }
+
+        label {
+          display: block;
+          margin-top: 10px;
+          margin-bottom: 3px;
+        }
+
+        input, select, textarea {
+          width: 100%;
+          padding: 6px;
+          font-size: 14px;
+          border: 1px solid #999;
+          margin-bottom: 5px;
+        }
+
+        textarea {
+          height: 80px;
+          resize: vertical;
+        }
+
+        button {
+          margin-top: 10px;
+          padding: 8px 16px;
+          background: #0066cc;
+          color: white;
+          border: none;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        button:hover { background: #0052a3; }
+        button:disabled { background: #999; cursor: not-allowed; }
+
+        #statusMsg {
+          margin-top: 8px;
+          font-size: 13px;
+          color: green;
+        }
+
+        .tabs {
+          margin-bottom: 10px;
+        }
+
+        .tabs button {
+          background: #ddd;
+          color: black;
+          margin-right: 5px;
+          margin-top: 0;
+        }
+
+        .tabs button.active {
+          background: #0066cc;
+          color: white;
+        }
+
+        .ticket {
+          border: 1px solid #ccc;
+          padding: 10px;
+          margin-bottom: 10px;
+          background: #fafafa;
+        }
+
+        .ticket strong { font-size: 14px; }
+        .ticket p { font-size: 13px; color: #555; margin: 4px 0 0; }
+        .ticket small { color: #999; }
+
+        .comment {
+          border-left: 3px solid #ccc;
+          padding: 6px 10px;
+          margin-bottom: 8px;
+          font-size: 13px;
+        }
+
+        .comment.converted { border-left-color: green; }
+        .comment small { color: #999; }
+
+        .empty { color: #999; font-size: 13px; }
+
+        span.cat {
+          display: inline-block;
+          background: #e0e0e0;
+          padding: 1px 7px;
+          font-size: 11px;
+          border-radius: 3px;
+          margin-right: 4px;
+        }
+        span.high   { background: #fdd; color: #900; }
+        span.medium { background: #ffe; color: #660; }
+        span.low    { background: #dfd; color: #060; }
+    </style>
+</head>
+<body>
+
+<h1>PulseDesk - Comment Triage</h1>
+
+<div class="main">
+
+    <div class="left">
+        <h2>Submit a comment</h2>
+
+        <label>Author:</label>
+        <input id="author" type="text" placeholder="Your name" />
+
+        <label>Channel:</label>
+        <select id="channel">
+            <option value="APP_REVIEW">App Review</option>
+            <option value="WEB_FORM">Web Form</option>
+            <option value="CHAT">Chat</option>
+            <option value="EMAIL">Email</option>
+        </select>
+
+        <label>Comment:</label>
+        <textarea id="content" placeholder="Write your comment here..."></textarea>
+
+        <button id="submitBtn" onclick="submitComment()">Submit</button>
+        <div id="statusMsg"></div>
+    </div>
+
+    <div class="right">
+        <div class="tabs">
+            <button class="active" onclick="showTab('tickets')">Tickets (<span id="ticketCount">0</span>)</button>
+            <button onclick="showTab('comments')">Comments (<span id="commentCount">0</span>)</button>
+        </div>
+
+        <div id="ticketsPanel">
+            <h2>Tickets</h2>
+            <div id="ticketsList"><p class="empty">No tickets yet.</p></div>
+        </div>
+
+        <div id="commentsPanel" style="display:none">
+            <h2>All Comments</h2>
+            <div id="commentsList"><p class="empty">No comments yet.</p></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const API = '';
+
+    function showTab(tab) {
+      document.getElementById('ticketsPanel').style.display  = tab === 'tickets'  ? '' : 'none';
+      document.getElementById('commentsPanel').style.display = tab === 'comments' ? '' : 'none';
+
+      var btns = document.querySelectorAll('.tabs button');
+      btns[0].className = tab === 'tickets'  ? 'active' : '';
+      btns[1].className = tab === 'comments' ? 'active' : '';
+
+      if (tab === 'tickets')  loadTickets();
+      if (tab === 'comments') loadComments();
+    }
+
+    async function submitComment() {
+      var author  = document.getElementById('author').value.trim();
+      var content = document.getElementById('content').value.trim();
+      var channel = document.getElementById('channel').value;
+      var btn     = document.getElementById('submitBtn');
+      var msg     = document.getElementById('statusMsg');
+
+      if (!author || !content) {
+        msg.style.color = 'red';
+        msg.textContent = 'Please fill in all fields.';
+        return;
+      }
+
+      btn.disabled = true;
+      msg.style.color = 'blue';
+      msg.textContent = 'Sending...';
+
+      try {
+        var res  = await fetch(API + '/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author, content, channel })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+
+        msg.style.color = 'green';
+        msg.textContent = data.convertedToTicket ? 'Done! A ticket was created.' : 'Done! No ticket needed.';
+
+        document.getElementById('author').value  = '';
+        document.getElementById('content').value = '';
+        loadTickets();
+        loadComments();
+      } catch (e) {
+        msg.style.color = 'red';
+        msg.textContent = 'Error: ' + e.message;
+      }
+
+      btn.disabled = false;
+    }
+
+    async function loadTickets() {
+      try {
+        var res  = await fetch(API + '/tickets');
+        var data = await res.json();
+        document.getElementById('ticketCount').textContent = data.length;
+        var el = document.getElementById('ticketsList');
+        if (!data.length) { el.innerHTML = '<p class="empty">No tickets yet.</p>'; return; }
+        el.innerHTML = data.reverse().map(function(t) {
+          return '<div class="ticket">' +
+            '<strong>#' + t.id + ' - ' + t.title + '</strong><br>' +
+            '<span class="cat">' + t.category + '</span>' +
+            '<span class="cat ' + t.priority.toLowerCase() + '">' + t.priority + '</span>' +
+            '<p>' + t.summary + '</p>' +
+            '<small>Comment #' + t.commentId + ' · ' + formatDate(t.createdAt) + '</small>' +
+            '</div>';
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadComments() {
+      try {
+        var res  = await fetch(API + '/comments');
+        var data = await res.json();
+        document.getElementById('commentCount').textContent = data.length;
+        var el = document.getElementById('commentsList');
+        if (!data.length) { el.innerHTML = '<p class="empty">No comments yet.</p>'; return; }
+        el.innerHTML = data.reverse().map(function(c) {
+          return '<div class="comment ' + (c.convertedToTicket ? 'converted' : '') + '">' +
+            '<small>' + c.author + ' · ' + c.channel + ' · ' + formatDate(c.createdAt) +
+            (c.convertedToTicket ? ' · <span style="color:green">ticket created</span>' : '') + '</small><br>' +
+            c.content +
+            '</div>';
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    loadTickets();
+    loadComments();
+</script>
+
+</body>
+</html>
